@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2015-2018 Alibaba Group Holding Limited
  */
@@ -13,9 +12,9 @@
 #include "freertos/task.h"
 #include "gpioconfig.h"
 
-extern volatile int ToTalRotation; //总转数
-extern volatile int RPM; //转速
-extern volatile bool MACHINESTATE; // 1启动 0停止
+extern volatile int TotalRotation; //总转数
+extern volatile double RPM; //转速
+extern volatile bool MachineState;  // 1启动 0停止
 
 char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
 char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
@@ -82,8 +81,8 @@ int example_publish(void *handle)
 
     payload = HAL_Malloc(200);
 	memset(payload, 0, 200);
-    sprintf(payload,"{\"params\":{\"total_rotation\":%d,\"RotateSpeed\":%d,\"RunningState\":%d},\"method\":\"thing.event.property.post\"}",ToTalRotation,RPM,MACHINESTATE);//
-
+    sprintf(payload,"{\"params\":{\"total_rotation\":%d,\"RotateSpeed\":%lf,\"RunningState\":%d},\"method\":\"thing.event.property.post\"}",TotalRotation,RPM,MachineState);
+                    
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
     if (topic == NULL) {
@@ -104,17 +103,13 @@ int example_publish(void *handle)
     return 0;
 }
 
-int example_publish(void *handle)
+int post_stop_alert(void *handle)
 {
     int             res = 0;
-    const char     *fmt = "/sys/%s/%s/thing/event/property/post";
+    const char     *fmt = "/sys/%s/%s/thing/event/post_stop_alert/post";
     char           *topic = NULL;
     int             topic_len = 0;
-    char           *payload = NULL;
-
-    payload = HAL_Malloc(200);
-	memset(payload, 0, 200);
-    sprintf(payload,"{\"params\":{\"RunningState\":%d},\"method\":\"thing.event.property.post\"}",MACHINESTATE);//
+    char           *payload = "{\"message\":\"post_stop_alert\"}";
 
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
@@ -131,11 +126,29 @@ int example_publish(void *handle)
         HAL_Free(topic);
         return -1;
     }
-
+    
     HAL_Free(topic);
     return 0;
 }
 
+
+// void post_stop_alert()
+// {
+//     int             res = 0;
+//     const char     *fmt = "/sys/%s/%s/thing/event/post_stop_alert/post";
+//     char           *topic = NULL;
+//     int             topic_len = 0;
+//     char           *payload = NULL;
+
+//     payload = HAL_Malloc(200);
+// 	memset(payload, 0, 200);
+//     sprintf(payload,"{\"\post_stop_alert\",\"method\":\"thing.event.property.post\"}");
+//     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
+//     topic = HAL_Malloc(topic_len);
+//     memset(topic, 0, topic_len);
+//     HAL_Snprintf(topic, topic_len, fmt, DEMO_PRODUCT_KEY, DEMO_DEVICE_NAME);
+//     IOT_MQTT_Publish_Simple(0, topic, IOTX_MQTT_QOS0, payload, strlen(payload));
+// }
 
 void example_event_handle(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt msg)
 {
@@ -282,6 +295,7 @@ int mqtt_main(void *paras)
     while (1) {
         if (0 == loop_cnt % 20) {
             example_publish(pclient);
+            // post_stop_alert();
         }
 
         IOT_MQTT_Yield(pclient, 200);
@@ -291,4 +305,3 @@ int mqtt_main(void *paras)
 
     return 0;
 }
-
