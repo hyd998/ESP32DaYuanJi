@@ -72,7 +72,7 @@ int example_subscribe(void *handle)
     return 0;
 }
 
-int post_property(void *handle)
+int post_property()
 {
     int             res = 0;
     const char     *fmt = "/sys/%s/%s/thing/event/property/post";
@@ -104,7 +104,7 @@ int post_property(void *handle)
     return 0;
 }
 
-int post_stop_alert(void *handle)
+int post_stop_alert()
 {
     //received topic=/sys/a1QxiJtSoHS/DaYuanji001/thing/event/post_stop_alert/post_reply,
     // payload={"code":200,"data":{},"id":"1655514261049","message":"success","method":"thing.event.post_stop_alert.post","version":"1.0"}
@@ -136,7 +136,7 @@ int post_stop_alert(void *handle)
     return 0;
 }
 
-int post_rotation(void *handle)
+int post_rotation()
 {
     int             res = 0;
     const char     *fmt = "/sys/%s/%s/thing/event/post_rotation/post";
@@ -205,6 +205,7 @@ int mqtt_main(void *paras)
     mqtt_params.handle_event.h_fp = example_event_handle;
 
     pclient = IOT_MQTT_Construct(&mqtt_params);
+    // printf("pclient is %lf \n",pclient);
     if (NULL == pclient) {
         EXAMPLE_TRACE("MQTT construct failed");
         return -1;
@@ -217,10 +218,9 @@ int mqtt_main(void *paras)
     }
 
     while (1) {
-        if (0 == loop_cnt % 20) {
-             post_property(pclient);
+        if (0 == loop_cnt % 60) {
+             post_property();
             // post_stop_alert(pclient);
-             post_rotation(pclient);
         }
 
         IOT_MQTT_Yield(pclient, 200);

@@ -25,5 +25,7 @@
 #define _MQTT_SOLO_H__
 
 int mqtt_main(void *paras);
+int post_property();
 int post_stop_alert();
+int post_rotation();
 #endif

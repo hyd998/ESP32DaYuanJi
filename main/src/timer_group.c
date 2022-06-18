@@ -16,7 +16,10 @@
 #include "gpioconfig.h"
 #include "stdio.h"
 #include "math.h"
+
 #include "mqtt_solo.h"
+#include "dm_wrapper.h"
+#include "mqtt_api.h"
 
 #include "driver/pcnt.h"
 #include "esp_attr.h"
@@ -212,6 +215,7 @@ static void tg_timer_init(int group, int timer, bool auto_reload, int timer_inte
 
 void timer_main(void)
 {
+
     volatile unsigned long firstTime,lastTime;
     s_timer_queue = xQueueCreate(10, sizeof(example_timer_event_t));
     pcnt_evt_queue = xQueueCreate(10, sizeof(pcnt_evt_t));
@@ -257,16 +261,15 @@ void timer_main(void)
         if(MachineState== 0&&rpm>5) //旋转时刻
         {
             rotation_state = 1;
-            // post_rotation();
+            post_rotation();
         }
         if(MachineState== 1&&rpm<5) //停转时刻
         {
-
-             // post_stop_alert();
+            post_stop_alert();
         }
 
-        // printf("getPulseinterval is %ld;stop_duration is %d;Timercnt is %d;\n",PulseInterval,stop_duration,Timercnt);
-        // printf("MachineState is %d \n",MachineState);
-        // printf("rpm is %lf \n",rpm);
+        printf("getPulseinterval is %ld;stop_duration is %d;Timercnt is %d;\n",PulseInterval,stop_duration,Timercnt);
+        printf("MachineState is %d \n",MachineState);
+        printf("rpm is %lf \n",rpm);
     }
 }
