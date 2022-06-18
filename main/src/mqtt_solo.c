@@ -12,7 +12,7 @@
 #include "freertos/task.h"
 #include "gpioconfig.h"
 
-extern volatile int TotalRotation; //总转数
+extern volatile int32_t TotalRotation; //总转数
 extern volatile double RPM; //转速
 extern volatile bool MachineState;  // 1启动 0停止
 
@@ -81,7 +81,7 @@ int example_publish(void *handle)
 
     payload = HAL_Malloc(200);
 	memset(payload, 0, 200);
-    sprintf(payload,"{\"params\":{\"total_rotation\":%d,\"RotateSpeed\":%lf,\"RunningState\":%d},\"method\":\"thing.event.property.post\"}",TotalRotation,RPM,MachineState);
+    sprintf(payload,"{\"params\":{\"TotalRotation\":%d,\"RotateSpeed\":%lf,\"RunningState\":%d},\"method\":\"thing.event.property.post\"}",TotalRotation,RPM,MachineState);
                     
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
@@ -105,12 +105,16 @@ int example_publish(void *handle)
 
 int post_stop_alert(void *handle)
 {
+    //received topic=/sys/a1QxiJtSoHS/DaYuanji001/thing/event/post_stop_alert/post_reply,
+    // payload={"code":200,"data":{},"id":"1655514261049","message":"success","method":"thing.event.post_stop_alert.post","version":"1.0"}
+    //"id":1655517112000,"version":"1.0","params":{},"method":"thing.event.post_stop_alert.post"
     int             res = 0;
     const char     *fmt = "/sys/%s/%s/thing/event/post_stop_alert/post";
     char           *topic = NULL;
     int             topic_len = 0;
-    char           *payload = "{\"message\":\"post_stop_alert\"}";
-
+    char           *payload = "{\"id\":1655517112001,\"version\":\"1.0\",\"params\":{},\"method\":\"thing.event.post_stop_alert.post\"}";
+    
+    // char           *payload = "{}";
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
     if (topic == NULL) {
@@ -295,7 +299,7 @@ int mqtt_main(void *paras)
     while (1) {
         if (0 == loop_cnt % 20) {
             example_publish(pclient);
-            // post_stop_alert();
+            post_stop_alert(pclient);
         }
 
         IOT_MQTT_Yield(pclient, 200);

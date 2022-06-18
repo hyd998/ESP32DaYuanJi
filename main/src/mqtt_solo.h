@@ -25,5 +25,5 @@
 #define _MQTT_SOLO_H__
 
 int mqtt_main(void *paras);
-int MachineState_publish(void *handle);
+int post_stop_alert();
 #endif
