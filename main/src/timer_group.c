@@ -29,10 +29,11 @@ static const char *TAG = "pcnt";
 
 volatile int32_t TotalRotation;//总转速
 volatile bool MachineState; // 1启动 0停止
-volatile int Timercnt; //RPM每分钟转速,runtime：参考时间 
-volatile double RPM;//每分钟转速
+volatile int Timercnt; //rpm每分钟转速,runtime：参考时间 
+volatile double rpm;//每分钟转速
 volatile unsigned long PulseInterval; //两次脉冲直接的间隔时间
-volatile int PulseWT=0; //脉冲等待次数，主循环循环一次加1，
+volatile int stop_duration; //脉冲等待次数，主循环循环一次加1，
+volatile bool rotation_state;//启停状态标识
 
 /*定时器配置*/
 #define TIMER0_INTERVAL_MS        1
@@ -93,19 +94,19 @@ static bool IRAM_ATTR timer_group_isr_callback(void *args)
     };
     /*每分钟转速待优化*/
         Timercnt++;
-    // if(MachineState==1&&PulseWT>=10&&Timercnt>=10)
-    if(MachineState==1&&PulseWT>=10&&Timercnt>=10)
+    // if(MachineState==1&&stop_duration>=10&&Timercnt>=10)
+    if(MachineState==1&&stop_duration>=10&&Timercnt>=10)
     {
-        PulseWT=0;
+        stop_duration=0;
         PulseInterval=0;
         Timercnt=0;
-        RPM=0;
+        rpm=0;
     }
     if(MachineState==0)
     {
-        PulseWT=0;
+        stop_duration=0;
         Timercnt=0;
-        RPM=0;
+        rpm=0;
     }
     xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
@@ -124,7 +125,7 @@ static void IRAM_ATTR pcnt_example_intr_handler(void *arg)
     unsigned long currentMillis = xTaskGetTickCountFromISR();
     portBASE_TYPE HPTaskAwoken = pdFALSE;
     pcntevt.timeStamp = currentMillis;
-    PulseWT=0;
+    stop_duration=0;
     xQueueSendFromISR(pcnt_evt_queue, &pcntevt, &HPTaskAwoken);     // 队列发送
 }
 
@@ -211,7 +212,6 @@ static void tg_timer_init(int group, int timer, bool auto_reload, int timer_inte
 
 void timer_main(void)
 {
-    bool RunningState;
     volatile unsigned long firstTime,lastTime;
     s_timer_queue = xQueueCreate(10, sizeof(example_timer_event_t));
     pcnt_evt_queue = xQueueCreate(10, sizeof(pcnt_evt_t));
@@ -244,24 +244,29 @@ void timer_main(void)
         if (lastTime != firstTime)
             PulseInterval = lastTime - firstTime;
         else
-            PulseWT++;  //记录没进pcnt中断，累积的次数。
+            stop_duration++;  //记录没进pcnt中断，累积的次数。
             
         if(PulseInterval!=0)//过滤间隔低于1秒的脉冲。
-            RPM = round(60/(PulseInterval/100));
+            rpm = round(60/(PulseInterval/100));
 
         if (PulseInterval>0 && PulseInterval<900) //600为6秒
             MachineState = 1;// 开启
         else
             MachineState = 0;// 停机
 
-        if(MachineState== 1&&RPM<10)
+        if(MachineState== 0&&rpm>5) //旋转时刻
         {
-            RunningState = 0;
-            // post_stop_alert();
-            printf("post_stop_alert publish succeful \n");
+            rotation_state = 1;
+            // post_rotation();
         }
-        // printf("getPulseinterval is %ld;PulseWT is %d;Timercnt is %d;\n",PulseInterval,PulseWT,Timercnt);
+        if(MachineState== 1&&rpm<5) //停转时刻
+        {
+
+             // post_stop_alert();
+        }
+
+        // printf("getPulseinterval is %ld;stop_duration is %d;Timercnt is %d;\n",PulseInterval,stop_duration,Timercnt);
         // printf("MachineState is %d \n",MachineState);
-        // printf("RPM is %lf \n",RPM);
+        // printf("rpm is %lf \n",rpm);
     }
 }
