@@ -11,12 +11,29 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gpioconfig.h"
+#include "dynreg_api.h"
+#include "infra_types.h"
+#include "infra_defs.h"
 
-extern volatile int32_t TotalRotation; //总转数
+extern volatile int32_t current_rotations; //总转数
 extern volatile double rpm; //转速
 extern volatile bool rotation_state;//启停状态标识
 extern volatile int stop_duration; //停机时长
+//一型一密
+// char *DEMO_PRODUCT_KEY = "a1NF8b6Oz71" ;//产品ID  修改成自己的产品ID
+// char *DEMO_PRODUCT_SECRET = "oNBNCv86zrNYhXQj" ;//产品ID
+// char *DEMO_DEVICE_NAME = "DaYuanJi002" ;//产品ID  修改成自己的产品ID
+// char *DEMO_DEVICE_SECRET = "69a0432816d33620b97ec85cea28d4c3";
+// #define PRODUCT_KEY             "a1NF8b6Oz71"
+// #define DEVICE_NAME             "DaYuanJi002"
+// #define DEVICE_SECRET           "oNBNCv86zrNYhXQj"
 
+// char DEMO_PRODUCT_KEY[12] = "a1NF8b6Oz71" ;//产品ID  修改成自己的产品ID
+// char DEMO_PRODUCT_SECRET[17] = "oNBNCv86zrNYhXQj" ;//产品ID
+// char DEMO_DEVICE_NAME[12] = "DaYuanJi002" ;//产品ID  修改成自己的产品ID
+// char DEMO_DEVICE_SECRET[33] = "69a0432816d33620b97ec85cea28d4c3";
+
+//一机一密
 char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
 char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
 char DEMO_DEVICE_SECRET[IOTX_DEVICE_SECRET_LEN + 1] = {0};
@@ -82,7 +99,7 @@ int post_property()
 
     payload = HAL_Malloc(200);
 	memset(payload, 0, 200);
-    sprintf(payload,"{\"params\":{\"current_rotations\":%d,\"rpm\":%lf},\"method\":\"thing.event.property.post\"}",TotalRotation,rpm);
+    sprintf(payload,"{\"params\":{\current_rotations\":%d,\"rpm\":%lf},\"method\":\"thing.event.property.post\"}",current_rotations,rpm);
                     
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
@@ -143,11 +160,11 @@ int post_rotation()
     char           *topic = NULL;
     int             topic_len = 0;
     char           *payload =  NULL;
-    // char           *payload = "{\"id\":1655517112002,\"version\":\"1.0\",\"params\":{\"rotations\":%d,\"rpm\":%lf,\"post_rotation\":%d,\"rotation_state\":%d},\"method\":\"thing.event.post_rotation.post\"}",TotalRotation,rpm,stop_duration,rotation_state;
+    // char           *payload = "{\"id\":1655517112002,\"version\":\"1.0\",\"params\":{\"rotations\":%d,\"rpm\":%lf,\"post_rotation\":%d,\"rotation_state\":%d},\"method\":\"thing.event.post_rotation.post\"}",current_rotations,rpm,stop_duration,rotation_state;
 
     payload = HAL_Malloc(200);
 	memset(payload, 0, 200);
-    sprintf(payload,"{\"id\":1655517112001,\"version\":\"1.0\",\"params\":{\"rotations\":%d,\"stop_duration\":%d,\"rotation_state\":%d},\"method\":\"thing.event.post_rotation.post\"}",TotalRotation,stop_duration,rotation_state);
+    sprintf(payload,"{\"id\":1655517112001,\"version\":\"1.0\",\"params\":{\"rotations\":%d,\"stop_duration\":%d,\"rotation_state\":%d},\"method\":\"thing.event.post_rotation.post\"}",current_rotations,stop_duration,rotation_state);//这里的current_rotations之后会替换成由nvc存储中读取的历史总转速。
 
     topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
     topic = HAL_Malloc(topic_len);
@@ -186,25 +203,34 @@ void example_event_handle(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt 
  *  For new devices created by yourself, pub/sub privilege also requires being granted
  *  to its /${productKey}/${deviceName}/user/get for successfully running whole example
  */
-
+//一型一密
 int mqtt_main(void *paras)
 {
     void                   *pclient = NULL;
     int                     res = 0;
     int                     loop_cnt = 0;
-    iotx_mqtt_param_t       mqtt_params;
+    iotx_dev_meta_info_t    meta;
 
-    HAL_GetProductKey(DEMO_PRODUCT_KEY);
-    HAL_GetDeviceName(DEMO_DEVICE_NAME);
-    HAL_GetDeviceSecret(DEMO_DEVICE_SECRET);
+    iotx_http_region_types_t region = IOTX_HTTP_REGION_SHANGHAI;
+    HAL_Printf("dynreg example\n");
 
-    EXAMPLE_TRACE("mqtt example");
 
-    memset(&mqtt_params, 0x0, sizeof(mqtt_params));
+    memset(&meta,0,sizeof(meta));
 
-    mqtt_params.handle_event.h_fp = example_event_handle;
+    HAL_GetProductKey(meta.product_key);
+    HAL_GetProductSecret(meta.product_secret);
+    HAL_GetDeviceName(meta.device_name);
 
-    pclient = IOT_MQTT_Construct(&mqtt_params);
+    res = IOT_Dynamic_Register(region, &meta);
+    if (res < 0) 
+    {
+    HAL_Printf("IOT_Dynamic_Register failed\n");
+    return -1;
+    }
+    HAL_Printf("\nDevice Secret: %s\n\n", meta.device_secret);
+  
+
+    pclient = IOT_MQTT_Construct(&meta);
     // printf("pclient is %lf \n",pclient);
     if (NULL == pclient) {
         EXAMPLE_TRACE("MQTT construct failed");
@@ -218,15 +244,59 @@ int mqtt_main(void *paras)
     }
 
     while (1) {
-        if (0 == loop_cnt % 60) {
-             post_property();
+    if (0 == loop_cnt % 60) {
+            //  post_property();
             // post_stop_alert(pclient);
-        }
-
-        IOT_MQTT_Yield(pclient, 200);
-
-        loop_cnt += 1;
     }
+    IOT_MQTT_Yield(pclient, 200);
 
+    loop_cnt += 1;
+    vTaskDelay(100);
+    }
     return 0;
+
 }
+//一机一密
+// int mqtt_main(void *paras)
+// {
+//     void                   *pclient = NULL;
+//     int                     res = 0;
+//     int                     loop_cnt = 0;
+//     iotx_mqtt_param_t       mqtt_params;
+
+//     HAL_GetProductKey(DEMO_PRODUCT_KEY);
+//     HAL_GetDeviceName(DEMO_DEVICE_NAME);
+//     HAL_GetDeviceSecret(DEMO_DEVICE_SECRET);
+
+//     EXAMPLE_TRACE("mqtt example");
+
+//     memset(&mqtt_params, 0x0, sizeof(mqtt_params));
+
+//     mqtt_params.handle_event.h_fp = example_event_handle;
+
+//     pclient = IOT_MQTT_Construct(&mqtt_params);
+//     // printf("pclient is %lf \n",pclient);
+//     if (NULL == pclient) {
+//         EXAMPLE_TRACE("MQTT construct failed");
+//         return -1;
+//     }
+
+//     res = example_subscribe(pclient);
+//     if (res < 0) {
+//         IOT_MQTT_Destroy(&pclient);
+//         return -1;
+//     }
+
+//     while (1) {
+//         if (0 == loop_cnt % 60) {
+//              post_property();
+//             // post_stop_alert(pclient);
+//         }
+
+//         IOT_MQTT_Yield(pclient, 200);
+
+//         loop_cnt += 1;
+//     }
+
+//     return 0;
+// }

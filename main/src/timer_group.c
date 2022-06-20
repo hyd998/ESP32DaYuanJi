@@ -30,13 +30,13 @@ static const char *TAG = "pcnt";
 #define TIMER_DIVIDER         (16)  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
 
-volatile int32_t TotalRotation;//总转速
-volatile bool MachineState; // 1启动 0停止
-volatile int Timercnt; //rpm每分钟转速,runtime：参考时间 
-volatile double rpm;//每分钟转速
-volatile unsigned long PulseInterval; //两次脉冲直接的间隔时间
-volatile int stop_duration; //脉冲等待次数，主循环循环一次加1，
-volatile bool rotation_state;//启停状态标识
+volatile int32_t current_rotations;//当前转数
+volatile bool MachineState = 0; //机器状态 1启动 0停止
+volatile int Timercnt; //Timercnt用于记录定时器中断的次数
+volatile double rpm = 0;//每分钟转速
+volatile unsigned long PulseInterval = 0; //两次脉冲直接的间隔时间
+volatile int stop_duration; //停转时间 stop_duration=1 大约为1S
+volatile int rotation_state = 0;//启停状态标识
 
 /*定时器配置*/
 #define TIMER0_INTERVAL_MS        1
@@ -103,11 +103,13 @@ static bool IRAM_ATTR timer_group_isr_callback(void *args)
         stop_duration=0;
         PulseInterval=0;
         Timercnt=0;
+        rotation_state=0;
         rpm=0;
     }
     if(MachineState==0)
     {
         stop_duration=0;
+        rotation_state=0 ;
         Timercnt=0;
         rpm=0;
     }
@@ -231,15 +233,15 @@ void timer_main(void)
         res = xQueueReceive(pcnt_evt_queue, &pcntevt, 1000 / portTICK_PERIOD_MS);
         if(res == pdTRUE)
         {
-            pcnt_get_counter_value(pcnt_unit, &TotalRotation);
-            ESP_LOGI(TAG, "Event PCNT plusetime is :%ld; uint is %d; cnt: %d", pcntevt.timeStamp,pcntevt.unit, TotalRotation);
+            pcnt_get_counter_value(pcnt_unit, &current_rotations);
+            ESP_LOGI(TAG, "Event PCNT plusetime is :%ld; uint is %d; cnt: %d", pcntevt.timeStamp,pcntevt.unit, current_rotations);
             // firstTime=pcntevt.unit
             lastTime = pcntevt.timeStamp;
         }
         else
         {
-            pcnt_get_counter_value(pcnt_unit, &TotalRotation);
-            ESP_LOGI(TAG, "Current counter value :%d", TotalRotation);
+            pcnt_get_counter_value(pcnt_unit, &current_rotations);
+            ESP_LOGI(TAG, "Current counter value :%d", current_rotations);
             // firstTime=pcntevt.timeStamp;
             firstTime = lastTime; // 上一次上升沿的时间保存到第一次
             lastTime = pcntevt.timeStamp; // 当前的保存到这一次，两个差值就是中间的时间
@@ -254,22 +256,26 @@ void timer_main(void)
             rpm = round(60/(PulseInterval/100));
 
         if (PulseInterval>0 && PulseInterval<900) //600为6秒
+            {
             MachineState = 1;// 开启
+            rotation_state++;
+            }
         else
             MachineState = 0;// 停机
 
-        if(MachineState== 0&&rpm>5) //旋转时刻
+        if(rotation_state == 1 && rpm> 5) //旋转时刻
         {
-            rotation_state = 1;
             post_rotation();
+            printf("旋转时刻 \n");
         }
-        if(MachineState== 1&&rpm<5) //停转时刻
+        if(MachineState==1&&stop_duration>=10&&Timercnt>=10)
         {
             post_stop_alert();
+            printf("停转时刻 \n");
         }
-
         printf("getPulseinterval is %ld;stop_duration is %d;Timercnt is %d;\n",PulseInterval,stop_duration,Timercnt);
         printf("MachineState is %d \n",MachineState);
         printf("rpm is %lf \n",rpm);
+        printf("rotation_state is %d \n",rotation_state);
     }
 }

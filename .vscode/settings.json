@@ -3,21 +3,13 @@
     "idf.portWin": "COM12",
     "idf.flashType": "UART",
     "files.associations": {
-        "string.h": "c",
-        "mqtt_solo.h": "c",
-        "task.h": "c",
-        "gpio.h": "c",
-        "esp_attr.h": "c",
-        "conn_mgr.h": "c",
-        "infra_compat.h": "c",
-        "timer_group.h": "c",
-        "dm_wrapper.h": "c",
-        "freertos.h": "c",
-        "stdlib.h": "c",
-        "mqtt_api.h": "c",
-        "pcnt_event_example.h": "c",
+        "dynreg_internal.h": "c",
         "gpioconfig.h": "c",
-        "pcnt.h": "c",
-        "queue.h": "c"
+        "dynreg_api.h": "c",
+        "dynreg_wrapper.h": "c",
+        "infra_types.h": "c",
+        "infra_defs.h": "c",
+        "mqtt_api.h": "c",
+        "freertos.h": "c"
     }
 }
