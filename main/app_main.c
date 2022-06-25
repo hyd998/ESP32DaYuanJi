@@ -74,6 +74,6 @@ void app_main()
     IOT_SetLogLevel(IOT_LOG_INFO);
 
     conn_mgr_start();
-    timer_main();
+    // timer_main();
 }
 

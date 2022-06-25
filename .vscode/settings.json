@@ -10,6 +10,11 @@
         "infra_types.h": "c",
         "infra_defs.h": "c",
         "mqtt_api.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "dev_sign_api.h": "c",
+        "conn_mgr.h": "c",
+        "dm_wrapper.h": "c",
+        "gpio.h": "c",
+        "task.h": "c"
     }
 }
